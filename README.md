@@ -2,92 +2,115 @@
 
 ## Overview
 
-A robust, enterprise-grade platform designed to evaluate, benchmark, and govern Large Language Model (LLM) outputs. This system addresses the critical problem of "silent failure" in GenAI applications by providing automated metrics, regression detection, and human-in-the-loop review workflows. It ensures that model updates, prompt changes, and RAG pipeline modifications effectively improve quality without introducing hallucinations or safety violations.
+This repository contains a production-grade platform designed to evaluate, benchmark, and govern Large Language Model (LLM) outputs. As GenAI systems become integral to enterprise applications, the lack of systematic evaluation leads to silent failures, regression loops, and untrusted deployments. This platform addresses these challenges by treating evaluation as a core infrastructure component, providing clear quantitative signals on model performance, safety, and cost.
 
-This platform treats LLM evaluation as infrastructure, not an afterthought, mirroring the rigor found in FAANG-scale ML systems.
+## Problem Statement
 
-## Core Problem Statement
+Modern Generative AI systems are non-deterministic and fragile. Engineering teams often face significant challenges:
+*   **Silent Regressions:** Minor prompt changes or model updates often degrade performance in specific edge cases without detection.
+*   **Hallucinations:** Systems may confidently generate incorrect information, damaging trust.
+*   **Lack of Visibility:** Metrics regarding cost, latency, and quality are often anecdotal rather than systematic.
 
-Modern GenAI systems are non-deterministic and fragile. Engineering teams often struggle to answer fundamental questions:
-- Is output quality improving or degrading after a prompt change?
-- Are hallucinations increasing with the new model version?
-- Is the system remaining cost-effective and low-latency?
+This platform solves these issues by enabling rigor and reproducibility in the evaluation process, similar to traditional software integration testing.
 
-Without systematic evaluation, teams rely on "vibe checks," leading to production failures, regression loops, and untrusted AI applications. This platform provides the quantitative signal needed to deploy GenAI with confidence.
+## Solution Architecture
 
-## Features
+The system is architected as a set of modular microservices to ensure scalability and separation of concerns.
+
+```mermaid
+graph TD
+    User[User / CI Pipeline] -->|Submit Run| API[API Service (FastAPI)]
+    API -->|Enqueue Job| Queue[(Redis Message Queue)]
+    API -->|Store Metadata| DB[(PostgreSQL)]
+    
+    subgraph Worker Cluster
+        Worker[Celery Evaluator Worker] -->|Fetch Job| Queue
+        Worker -->|Inference Call| LLM_Provider[LLM Provider (OpenAI/Anthropic)]
+        Worker -->|Compute Metrics| Metric_Engine[Metric Computation Engine]
+        Worker -->|Save Results| DB
+    end
+    
+    subgraph Analysis & Governance
+        Dashboard[Streamlit Dashboard] -->|Read Metrics| DB
+        Human[Human Reviewer] -->|Label/Audit| Dashboard
+        CI[CI/CD Gate] -->|Query Pass/Fail| API
+    end
+```
+
+## Core Features
 
 ### 1. Automated Evaluation Engine
-The heart of the system is a flexible evaluation engine that runs a battery of tests against golden datasets.
-- **Auto-Metrics**: Semantic similarity (BERTScore, cosine similarity), exact match, and regex-based structural validation.
-- **LLM-as-a-Judge**: Uses superior models (e.g., GPT-4) to score outputs from smaller/faster models on criteria like "helpfulness," "conciseness," and "safety."
-- **Hallucination Detection**: specialized evaluators to check for factual consistency against source contexts.
+The evaluation engine runs a battery of tests against defined "golden datasets" to provide objective quality metrics.
+*   **Semantic Similarity:** Uses embedding-based metrics (BERTScore, Cosine Similarity) to measure alignment with reference answers.
+*   **LLM-as-a-Judge:** Orchestrates superior models (e.g., GPT-4) to grade outputs from optimization targets on qualitative criteria such as helpfulness, conciseness, and tone.
+*   **Structural Validation:** Enforces JSON schemas, regex patterns, and format constraints to ensure downstream system compatibility.
 
 ### 2. Regression Testing & Version Control
-Track the performance evolution of your GenAI system over time.
-- **Versioned Prompts & Models**: Every run is linked to a specific unique combination of prompt template, model version, and hyperparameters (temperature, top-p).
-- **Regression Alerts**: Automatically flag when a new deployment causes a metric (e.g., accuracy) to drop below a defined baseline.
-- **Diff Reports**: Side-by-side comparison of outputs to visualize exactly what changed between two versions.
+Track the evolution of system performance over time to prevent degradation.
+*   **Prompt & Model Versioning:** Every evaluation run is inextricably linked to a specific configuration snapshot (prompt template + model version + hyperparameters).
+*   **Regression Alerts:** Automated logic detects statistically significant drops in key metrics compared to a baseline, triggering alerts or blocking deployments.
+*   **Diff Reports:** Detailed side-by-side visualization of input/output pairs changed between versions.
 
 ### 3. Human-in-the-Loop (HITL) Review
-Recognizing that automated metrics aren't perfect, the platform integrates human review as a first-class citizen.
-- **Sampling & labeling**: Route low-confidence or randomly sampled outputs to human experts for "thumbs up/down" or scalar grading.
-- **Feedback Loop**: Use human labels to calibrated automated judges and improve golden datasets.
+Integrates human expertise where automated metrics fall short.
+*   **Sampling Strategy:** Intelligent sampling routes low-confidence or high-variance outputs to human reviewers.
+*   **Feedback Loop:** Human labels (Thumbs Up/Down, Likert Scale) are fed back into the system to fine-tune the "Judge" models and improve the quality of golden datasets.
 
 ### 4. Deployment Guardrails
-Prevent bad updates from ever reaching production.
-- **Quality Gates**: CI/CD integration that blocks deployments if evaluation scores fail to meet thresholds.
-- **Safety Checks**: Pre-flight checks for PII leakage, toxicity, and policy violations.
+Enforce quality standards before production release.
+*   **CI/CD Integration:** API endpoints allow build pipelines to query evaluation results and fail builds if quality thresholds are not met.
+*   **Safety & Policy Checks:** Pre-flight checks for PII leakage, toxicity, and adherence to content policies.
 
-## Architecture
+## Tech Stack
 
-The system is built as a modular microservices architecture, designed for scalability and extensibility.
-
-- **API Service (FastAPI)**: REST endpoints for submitting evaluation runs, retrieving results, and managing datasets.
-- **Evaluation Workers (Celery/Python)**: Async workers that process batches of prompts, call LLM providers, and compute metrics.
-- **Metadata Store (PostgreSQL)**: Relational storage for runs, metrics, prompt versions, and user feedback.
-- **Vector Store (ChromaDB/FAISS)**: Optional storage for semantic similarity checks.
-- **Frontend (Streamlit/React)**: Dashboard for visualizing regression trends, comparing versions, and performing human review.
-
-## Metrics & KPIs
-
-We track a comprehensive set of metrics to give a 360-degree view of system health:
-- **Correctness**: Alignment with golden answers.
-- **Hallucination Rate**: Percentage of unsupported claims.
-- **Latency p95**: Tail latency tracking to ensure valid UX.
-- **Cost per Run**: Token usage and estimated spend tracking.
+*   **API & Backend:** Python 3.10+, FastAPI
+*   **Task Queue:** Celery, Redis
+*   **Database:** PostgreSQL (Relational metadata), ChromaDB (Vector storage for similarity)
+*   **Frontend/Dashboard:** Streamlit
+*   **Infrastructure:** Docker, Docker Compose
 
 ## Getting Started
 
 ### Prerequisites
-- Python 3.10+
-- Docker & Docker Compose
-- API Keys for LLM Providers (OpenAI, Anthropic, etc.)
+*   Python 3.10 or higher
+*   Docker and Docker Compose
+*   Access to LLM Provider APIs (OpenAI, Anthropic, or Local)
 
 ### Installation
-1. Clone the repository.
-   ```bash
-   git clone https://github.com/manavanandani/llm-eval-platform.git
-   cd llm-eval-platform
-   ```
-2. Set up environment variables.
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
-3. Run with Docker Compose.
-   ```bash
-   docker-compose up --build
-   ```
 
-## Roadmap
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/manavanandani/llm-eval-platform.git
+    cd llm-eval-platform
+    ```
 
-- [ ] **Phase 1**: Core Evaluation Engine & Metrics (Semantic Similarity, Exact Match).
-- [ ] **Phase 2**: dataset Management & Versioning.
-- [ ] **Phase 3**: LLM-as-a-Judge Implementation.
-- [ ] **Phase 4**: Human Review Interface & Feedback Loop.
-- [ ] **Phase 5**: CI/CD Integration (GitHub Actions for Quality Gates).
+2.  Configure environment variables:
+    ```bash
+    cp .env.example .env
+    # Edit .env to include your OPENAI_API_KEY and database credentials
+    ```
+
+3.  Start the services using Docker Compose:
+    ```bash
+    docker-compose up --build -d
+    ```
+
+4.  Access the dashboard:
+    Navigate to `http://localhost:8501` in your browser.
+
+5.  Access the API documentation:
+    Navigate to `http://localhost:8000/docs`.
+
+## Usage Guide
+
+### Defining a Dataset
+Upload a CSV or JSONL file containing your test cases. Each record should include an `input_prompt` and optionally an `expected_output` or `reference_context`.
+
+### Running an Evaluation
+Submit a POST request to `/api/v1/evaluate/run` with the dataset ID and your prompt configuration. The system will asynchronously process the batch and calculate metrics.
+
+### Analyzing Results
+Use the Dashboard to view the "Run Comparison" page. Select your baseline run and your candidate run to see a delta of metrics (e.g., Accuracy: +2.5%, Latency: -100ms).
 
 ## License
-
 MIT License. See [LICENSE](LICENSE) for details.
