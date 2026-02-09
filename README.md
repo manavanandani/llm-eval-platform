@@ -1,5 +1,10 @@
 # LLM Evaluation, Quality & Governance Platform
 
+![Status](https://img.shields.io/badge/status-active-success.svg)
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![FastAPI](https://img.shields.io/badge/Framework-FastAPI-005571.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
 ## Overview
 
 This repository contains a production-grade platform designed to evaluate, benchmark, and govern Large Language Model (LLM) outputs. As GenAI systems become integral to enterprise applications, the lack of systematic evaluation leads to silent failures, regression loops, and untrusted deployments. This platform addresses these challenges by treating evaluation as a core infrastructure component, providing clear quantitative signals on model performance, safety, and cost.
@@ -19,21 +24,21 @@ The system is architected as a set of modular microservices to ensure scalabilit
 
 ```mermaid
 graph TD
-    User[User / CI Pipeline] -->|Submit Run| API[API Service (FastAPI)]
-    API -->|Enqueue Job| Queue[(Redis Message Queue)]
-    API -->|Store Metadata| DB[(PostgreSQL)]
+    User["User / CI Pipeline"] -->|Submit Run| API["API Service (FastAPI)"]
+    API -->|Enqueue Job| Queue[("Redis Message Queue")]
+    API -->|Store Metadata| DB[("PostgreSQL")]
     
-    subgraph Worker Cluster
-        Worker[Celery Evaluator Worker] -->|Fetch Job| Queue
-        Worker -->|Inference Call| LLM_Provider[LLM Provider (OpenAI/Anthropic)]
-        Worker -->|Compute Metrics| Metric_Engine[Metric Computation Engine]
+    subgraph "Worker Cluster"
+        Worker["Celery Evaluator Worker"] -->|Fetch Job| Queue
+        Worker -->|Inference Call| LLM_Provider["LLM Provider (OpenAI/Anthropic)"]
+        Worker -->|Compute Metrics| Metric_Engine["Metric Computation Engine"]
         Worker -->|Save Results| DB
     end
     
-    subgraph Analysis & Governance
-        Dashboard[Streamlit Dashboard] -->|Read Metrics| DB
-        Human[Human Reviewer] -->|Label/Audit| Dashboard
-        CI[CI/CD Gate] -->|Query Pass/Fail| API
+    subgraph "Analysis & Governance"
+        Dashboard["Streamlit Dashboard"] -->|Read Metrics| DB
+        Human["Human Reviewer"] -->|Label/Audit| Dashboard
+        CI["CI/CD Gate"] -->|Query Pass/Fail| API
     end
 ```
 
