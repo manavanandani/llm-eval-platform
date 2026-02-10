@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from src.api.routes import router as eval_router
+from src.database.models import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Load models, connect DB
+    # Startup: Create Tables
+    init_db()
     yield
-    # Shutdown: Close connections
 
 app = FastAPI(
     title="LLM Evaluation Platform",
@@ -14,14 +16,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.include_router(eval_router, prefix="/api/v1")
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "eval-api"}
-
-@app.post("/api/v1/evaluate/run")
-def start_evaluation_run(payload: dict):
-    """
-    Trigger an asynchronous evaluation run for a specific prompt/model version.
-    """
-    # Logic: Validate payload -> Create Run ID -> Enqueue Celery Task
-    return {"run_id": "mock-run-id", "status": "queued"}
